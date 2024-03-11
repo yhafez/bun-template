@@ -1,8 +1,11 @@
 import Test from './Components/Test'
-import './App.css'
 
 function App() {
-	return <Test />
+	return (
+		<>
+			<Test />
+		</>
+	)
 }
 
 export default App

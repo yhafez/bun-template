@@ -1,4 +1,6 @@
 import { dirname, relative } from 'path'
+import { renderToReadableStream } from 'react-dom/server'
+import App from './App'
 
 const builds = await Bun.build({
 	entrypoints: ['main.tsx', 'App.tsx', 'favicon.ico'],
@@ -66,9 +68,11 @@ const server = Bun.serve({
 		}
 
 		if (pathname === appJsPath && req.method === 'GET' && appJsOutput) {
-			return new Response(appJsOutput.stream(), {
+			// Serve App component
+			const appStream = await renderToReadableStream(<App />)
+			return new Response(appStream, {
 				headers: {
-					'Content-Type': appJsOutput.type || 'application/javascript',
+					'Content-Type': 'text/html',
 				},
 			})
 		}
