@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"description": "",
 	"scripts": {
-		"preinstall": "npx husky install",
+		"postinstall": "bunx husky install",
 		"start": "bun run server.tsx",
 		"dev": "bun --hot run server.tsx",
 		"lint": "bun lint:format && vun lint:fix ",
@@ -47,8 +47,8 @@
 	},
 	"husky": {
 		"hooks": {
-			"pre-commit": "pnpm husky:pre-commit",
-			"commit-msg": "pnpm husky:commit-msg"
+			"pre-commit": "bun husky:pre-commit",
+			"commit-msg": "bun husky:commit-msg"
 		}
 	},
 	"lint-staged": {
