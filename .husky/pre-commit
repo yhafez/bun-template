@@ -1,0 +1,39 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Capture the list of staged files
+staged_files=$(git diff --cached --name-only)
+
+# Initialize a variable to track whether there are any issues
+found_issue=false
+
+# ANSI color codes
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Loop through the staged files
+for file in $staged_files; do
+  # Check if the file is a JavaScript or TypeScript file
+  if [[ $file =~ \.(js|ts|jsx|tsx)$ ]]; then
+    # Use grep to find lines containing console.log
+    git show ":$file" | grep -n "console.log" | while IFS= read -r line; do
+      echo -e "${RED}Found console.log in ${YELLOW}$file${NC} at line ${RED}$line${NC}"
+      found_issue=true
+      # Exit the subshell immediately when an issue is found, but not the whole script
+      break
+    done
+    if [ "$found_issue" = true ]; then
+      # Exit the loop once an issue is found in any file
+      break
+    fi
+  fi
+done
+
+# Exit with an error code if any issues were found
+if [ "$found_issue" = true ]; then
+  exit 1
+fi
+
+# Run additional checks and tests only if there are no console.log issues
+bun lint-staged && bun type-check && bun test && git add .

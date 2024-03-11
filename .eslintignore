@@ -1,0 +1,8 @@
+/node_modules
+/build
+/dist
+/public
+.DS_Store
+dist-ssr
+coverage
+*.local
