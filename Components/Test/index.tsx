@@ -1,5 +1,5 @@
-const index = () => {
+const Test = () => {
 	return <div>I am a Test Component</div>
 }
 
-export default index
+export default Test
