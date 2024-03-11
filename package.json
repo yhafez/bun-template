@@ -1,21 +1,26 @@
 {
-  "name": "music-genre-classifier",
-  "version": "1.0.0",
-  "description": "",
-  "scripts": {},
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "react": "18.2.0",
-    "react-dom": "18.2.0"
-  },
-  "devDependencies": {
-    "@types/react": "^18.0.15",
-    "@types/react-dom": "^18.0.6"
-  },
-  "framework": {
-    "displayName": "React.js",
-    "static": "public"
-  }
+	"name": "music-genre-classifier",
+	"version": "1.0.0",
+	"description": "",
+	"scripts": {
+		"start": "bun run server.ts",
+		"dev": "bun --hot run server.ts"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"react": "18.2.0",
+		"react-dom": "^18.2.0"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.0.8",
+		"@types/react": "^18.0.15",
+		"@types/react-dom": "^18.2.21",
+		"bun-types": "^1.0.30"
+	},
+	"framework": {
+		"displayName": "React.js",
+		"static": "public"
+	}
 }
