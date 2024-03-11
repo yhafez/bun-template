@@ -1,9 +1,8 @@
 import { dirname, relative } from 'path'
 
 const builds = await Bun.build({
-	entrypoints: ['main.tsx', 'App.tsx'],
+	entrypoints: ['main.tsx', 'App.tsx', 'assets/favicon.ico'],
 	outdir: 'dist',
-	splitting: true,
 	minify: true,
 })
 
@@ -18,8 +17,9 @@ const getReplaceString = async (outputs: typeof builds.outputs) => {
 		} else if (output.path.endsWith('.css')) {
 			const cssContent = await output.text()
 			return `<style>${cssContent}</style>`
-		} else if (output.path.endsWith('.svg')) {
-			return `<img src="${getRelativePath(output.path)}" />`
+		}
+		else if(output.path.endsWith('.ico')){
+			return `<link rel="icon" href="${getRelativePath(output.path)}" />`
 		}
 	})
 
@@ -39,6 +39,9 @@ const appCssPath = appCssOutput?.path ? `/${getRelativePath(appCssOutput?.path)}
 
 const indexCssOutput = builds.outputs.find(output => output.path.startsWith('index') && output.path.endsWith('.css'))
 const indexCssPath = indexCssOutput?.path ? `/${getRelativePath(indexCssOutput?.path)}` : ''
+
+const faviconOutput = builds.outputs.find(output => output.path.endsWith('.ico'))
+const faviconPath = faviconOutput?.path ? `/${getRelativePath(faviconOutput?.path)}` : ''
 
 const server = Bun.serve({
 	port: process.env['PORT'],
@@ -77,6 +80,14 @@ const server = Bun.serve({
 			})
 		}
 
+		if(pathname === faviconPath && req.method === 'GET' && faviconOutput){
+			return new Response(faviconOutput.stream(), {
+				headers: {
+					'Content-Type': faviconOutput.type || 'image/x-icon',
+				},
+			})
+		}
+
 		if (pathname === '/' && req.method === 'GET') {
 			const indexFile = Bun.file('index.html')
 			const indexContent = await indexFile.text()
@@ -91,7 +102,25 @@ const server = Bun.serve({
 			})
 		}
 
-		return new Response('Not Found', { status: 404 })
+		try {
+			// Attempt to serve a file from the dist directory
+			const response = await new Response(Bun.file(`./dist${pathname}`));
+			if (response.status === 200) {
+			  return response;
+			}
+		  } catch (error) {
+			// If no routes matched and no file was served, return a 404 response
+			return new Response('404 Not Found', {
+			  status: 404,
+			  headers: { 'Content-Type': 'text/plain' },
+			});
+		  }
+
+		  // If no routes matched and no file was served, return a 404 response
+		  return new Response('404 Not Found', {
+			status: 404,
+			headers: { 'Content-Type': 'text/plain' },
+		  });
 	},
 })
 

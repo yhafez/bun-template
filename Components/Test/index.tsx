@@ -1,5 +1,13 @@
+import logo from '../../assets/react.svg'
+
+console.log(logo)
 const Test = () => {
-	return <div>I am a Test Component</div>
+	return (
+		<div>
+			<img src={logo} alt="logo" />
+			<p>I am a Test Component</p>
+		</div>
+	)
 }
 
 export default Test
