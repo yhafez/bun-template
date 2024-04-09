@@ -1,125 +1,94 @@
 import { dirname, relative } from 'path'
-import { renderToReadableStream } from 'react-dom/server'
-import App from './App'
+import path from 'path'
 
 const builds = await Bun.build({
-	entrypoints: ['main.tsx', 'App.tsx', 'favicon.ico'],
+	entrypoints: ['src'],
 	outdir: 'dist',
 	minify: true,
 	splitting: true,
 })
 
-const getRelativePath = (outputPath: string) => {
-	return relative(dirname(outputPath), outputPath)
-}
-
-const getReplaceString = async (outputs: typeof builds.outputs) => {
-	const replacePromises = outputs.map(async output => {
-		if (output.path.endsWith('.js')) {
-			return `<script type="module" src="${getRelativePath(output.path)}"></script>`
-		} else if (output.path.endsWith('.css')) {
-			const cssContent = await output.text()
-			return `<style>${cssContent}</style>`
-		} else if (output.path.endsWith('.ico')) {
-			return `<link rel="icon" href="${getRelativePath(output.path)}" />`
-		}
-	})
-
-	// Use Promise.all to wait for all promises to resolve
-	const replaceStrings = await Promise.all(replacePromises)
-	return replaceStrings.sort(a => (a?.includes('<style>') ? -1 : 1)).join('\n')
-}
-
-const mainJsOutput = builds.outputs.find(output => output.path.endsWith('main.js'))
-const mainJsPath = mainJsOutput?.path ? `/${getRelativePath(mainJsOutput?.path)}` : ''
-
-const appJsOutput = builds.outputs.find(output => output.path.endsWith('App.js'))
-const appJsPath = appJsOutput?.path ? `/${getRelativePath(appJsOutput?.path)}` : ''
-
-const appCssOutput = builds.outputs.find(
-	output => output.path.startsWith('App') && output.path.endsWith('.css'),
-)
-const appCssPath = appCssOutput?.path ? `/${getRelativePath(appCssOutput?.path)}` : ''
-
-const indexCssOutput = builds.outputs.find(
-	output => output.path.startsWith('index') && output.path.endsWith('.css'),
-)
-const indexCssPath = indexCssOutput?.path ? `/${getRelativePath(indexCssOutput?.path)}` : ''
-
+const jsOutputs = builds.outputs.filter(output => output.path.endsWith('.js'))
+const cssOutputs = builds.outputs.filter(output => output.path.endsWith('.css'))
 const faviconOutput = builds.outputs.find(output => output.path.endsWith('.ico'))
-const faviconPath = faviconOutput?.path ? `/${getRelativePath(faviconOutput?.path)}` : ''
-
-const chunkOutput = builds.outputs.find(
-	output => output.path.startsWith('chunk') && output.path.endsWith('.js'),
-)
-const chunkPath = chunkOutput?.path ? `/${getRelativePath(chunkOutput?.path)}` : ''
+const svgOutputs = builds.outputs.filter(output => output.path.endsWith('.svg'))
 
 const server = Bun.serve({
 	port: process.env['PORT'],
 	fetch: async req => {
 		const { pathname } = new URL(req.url)
 
-		if (pathname === mainJsPath && req.method === 'GET' && mainJsOutput) {
-			return new Response(mainJsOutput.stream(), {
-				headers: {
-					'Content-Type': mainJsOutput.type || 'application/javascript',
-				},
-			})
+		const basePath = path.join(process.cwd(), 'dist')
+		const getWebPath = (outputPath?: string) => {
+			return outputPath?.replace(basePath, '') || ''
 		}
 
-		if (pathname === appJsPath && req.method === 'GET' && appJsOutput) {
-			// Serve App component
-			const appStream = await renderToReadableStream(<App />)
-			return new Response(appStream, {
-				headers: {
-					'Content-Type': 'text/html',
-				},
-			})
-		}
-
-		if (pathname === appCssPath && req.method === 'GET' && appCssOutput) {
-			return new Response(appCssOutput.stream(), {
-				headers: {
-					'Content-Type': appCssOutput.type || 'text/css',
-				},
-			})
-		}
-
-		if (pathname === indexCssPath && req.method === 'GET' && indexCssOutput) {
-			return new Response(indexCssOutput.stream(), {
-				headers: {
-					'Content-Type': indexCssOutput.type || 'text/css',
-				},
-			})
-		}
-
-		if (pathname === faviconPath && req.method === 'GET' && faviconOutput) {
+		// Serve favicon
+		if (pathname === getWebPath(faviconOutput?.path) && faviconOutput && req.method === 'GET') {
 			return new Response(faviconOutput.stream(), {
-				headers: {
-					'Content-Type': faviconOutput.type || 'image/x-icon',
-				},
+				headers: { 'Content-Type': faviconOutput.type || 'image/x-icon' },
 			})
 		}
 
-		if (pathname === chunkPath && req.method === 'GET' && chunkOutput) {
-			return new Response(chunkOutput.stream(), {
-				headers: {
-					'Content-Type': chunkOutput.type || 'application/javascript',
-				},
-			})
+		// Serve SVGs
+		for (const svgOutput of svgOutputs) {
+			if (pathname === getWebPath(svgOutput.path) && svgOutput && req.method === 'GET') {
+				return new Response(svgOutput.stream(), {
+					headers: { 'Content-Type': svgOutput.type || 'image/svg+xml' },
+				})
+			}
 		}
 
+		// Serve CSS
+		for (const cssOutput of cssOutputs) {
+			if (pathname === getWebPath(cssOutput.path) && cssOutput && req.method === 'GET') {
+				return new Response(cssOutput.stream(), {
+					headers: { 'Content-Type': cssOutput.type || 'text/css' },
+				})
+			}
+		}
+
+		// Serve JS (including index.js, app.js, and chunks)
+		for (const jsOutput of jsOutputs) {
+			if (pathname === getWebPath(jsOutput?.path) && jsOutput && req.method === 'GET') {
+				return new Response(jsOutput.stream(), {
+					headers: { 'Content-Type': jsOutput.type || 'text/javascript' },
+				})
+			}
+		}
+
+		// Fallback for root path to serve the index.html with replaced content
 		if (pathname === '/' && req.method === 'GET') {
-			const indexFile = Bun.file('index.html')
+			const indexFile = Bun.file('src/index.html')
 			const indexContent = await indexFile.text()
-			const replaceString = getReplaceString(builds.outputs)
+			const getReplaceString = async (outputs: typeof builds.outputs) => {
+				const replacePromises = outputs.map(async output => {
+					if (output.path.endsWith('.js')) {
+						return `<script type="module" src="${`src/${relative(
+							dirname(output.path),
+							output.path,
+						)}`}"></script>`
+					} else if (output.path.endsWith('.css')) {
+						const cssContent = await output.text()
+						return `<style>${cssContent}</style>`
+					} else if (output.path.endsWith('.ico')) {
+						return `<link rel="icon" href="${`src/${relative(
+							dirname(output.path),
+							output.path,
+						)}`}">`
+					}
+				})
 
-			const contentWithReactScript = indexContent.replace(
-				'<!-- react-script -->',
-				await replaceString,
-			)
+				const replaceStrings = await Promise.all(replacePromises)
+				return replaceStrings
+					.filter(a => !!a)
+					.sort(a => (a?.includes('<style>') ? -1 : 1))
+					.join('\n')
+			}
+			const replaceString = await getReplaceString(builds.outputs)
+			const content = indexContent.replace('<!-- react-script -->', replaceString)
 
-			return new Response(contentWithReactScript, {
+			return new Response(content, {
 				headers: {
 					'Content-Type': 'text/html',
 				},
